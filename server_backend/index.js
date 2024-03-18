@@ -16,18 +16,15 @@ app.listen(port, () => {
 })
 
 app.get("/plants", (req, res, next) => {
-    res.json({
-        responseId: 1234,
-        students: [
-            {name: "Jordi", studentId: '12345678a'},
-            {name: "Marta", studentId: '12345678b'}
-    ]});
+  res.json({
+    joblist: tasks
+  });
 });
 
 app.post('/createPlant', (req, res, next) => {
-    console.log(req.body);
-    tasks.push(schedule.scheduleJob(req.body.secs + ' * * * * *', function(){  // this for one hour
+  console.log(req.body);
+  tasks.push(schedule.scheduleJob(req.body.secs + ' * * * * *', function(){  // this for one hour
     console.log('Output: ' + req.body.text);
-    }))
-    res.end();
+  }))
+  res.end();
 })
