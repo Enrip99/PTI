@@ -1,10 +1,26 @@
-const express = require('express')
+const schedule = require('node-schedule');
+const express = require('express');
+const mysql = require('mysql2');
 const app = express()
 const port = 8080
-var schedule = require('node-schedule');
-
 
 var tasks = []
+
+
+//************************** */
+var connection = mysql.createConnection({
+  host: "localhost",
+  hostport: 3306,
+  user: "PlantUser",
+  password: "verygay",
+  database: "PlantManager"
+})
+
+connection.connect((err) => {
+  if (err) return console.error(err.message);
+
+  console.log('Connected to the MySQL server.');
+});
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
@@ -16,9 +32,12 @@ app.listen(port, () => {
 })
 
 app.get("/plants", (req, res, next) => {
-  res.json({
-    joblist: tasks
-  });
+  let sentence = 'select * from plantas where owner = "Enric"';
+  connection.query(sentence, function(err, results){
+    res.json({
+      joblist: results
+    });
+  })
 });
 
 app.post('/createPlant', (req, res, next) => {
