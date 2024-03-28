@@ -24,8 +24,7 @@ connection.connect((err) => {
 });
 
 app.get('/', (req, res) => {
-  counter++;
-  res.send(counter);
+  res.send(counter++)
 })
 app.use(express.json());
 
