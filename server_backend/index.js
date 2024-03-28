@@ -6,6 +6,7 @@ const port = 8080
 
 var tasks = []
 
+var counter = 0;
 
 //************************** */
 var connection = mysql.createConnection({
@@ -23,7 +24,8 @@ connection.connect((err) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Hello World!')
+  counter++;
+  res.send(counter);
 })
 app.use(express.json());
 
