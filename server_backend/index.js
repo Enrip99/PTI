@@ -137,6 +137,7 @@ app.get("/species/:name", (req, res, next) => {
 app.post('/createPlant', (req, res, next) => {
   //demana json amb els 8 camps (no id)
   //també, crea el job de les alarmes
+  //devuelve el id
 
   /* Espera:
       description: string
@@ -148,17 +149,31 @@ app.post('/createPlant', (req, res, next) => {
       hum_min: float
       hum_min: float
   */
+
+  /* Exemple de json
+    {
+    "description": "Ficus porta esquerra",
+    "species": "Ficus",
+    "light_on": "20:30:00",
+    "light_off": "23:00:00",
+    "temp_min": 25.7,
+    "temp_max": 30.2,
+    "hum_min": 20,
+    "hum_max": 30
+    }
+  */
+
   console.log(req.body.xd)
 
   res.send("ok")
 })
 
-app.post('/modifyPlant', (req, res, next) => {
-  //demana json amb els 9 camps, poden ser nuls (excepte id)
+app.post('/modifyPlant/:id', (req, res, next) => {
+  //demana json amb els 8 camps, poden ser nuls tots menys un
 })
 
-app.post('/deletePlant', (req, res, next) => {
-  //demana json la id
+app.post('/deletePlant/:id', (req, res, next) => {
+  //sí
 })
 
 
