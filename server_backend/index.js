@@ -251,6 +251,18 @@ app.get("/plant/:id/humidity/:hours", (req, res, next) => {
 
 app.get("/species/:name", (req, res, next) => {
   //llista de plantes d'una especie
+
+  connection.query('SELECT description, lights_on, lights_off, temp_min, temp_max, humidity_min, humidity_max FROM plants where LOWER(species) = LOWER(?)', req.params.name, function(err, results){
+    if (err){
+      console.error(err);
+      res.status(500).send("500 - Internal server error");
+    }
+    else {
+      res.json({
+        plants: results
+     });
+    }
+  })
 });
 
 app.post('/createPlant', (req, res, next) => {
@@ -296,8 +308,9 @@ app.post('/deletePlant/:id', (req, res, next) => {
 })
 
 
-//SCHEDULE EXEMPLE:
+
   /*
+  //SCHEDULE EXEMPLE:
   console.log(req.body);
   tasks.push(schedule.scheduleJob('0 * * * * *', function(){  // this for one minute
     console.log('Output: ' + req.body.text);
