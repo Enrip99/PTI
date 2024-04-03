@@ -93,9 +93,15 @@ app.get("/plants", (req, res, next) => {
   //llistat de totes les plantes
   
   connection.query('SELECT * FROM plants', function(err, results){
-    res.json({
-      plants: results
-    });
+    if (err){
+      console.error(err);
+      res.status(500).send("500 - Internal server error");
+    }
+    else {
+      res.json({
+        plants: results
+     });
+    }
   })
 });
 
@@ -106,9 +112,9 @@ app.get("/plant/:id", async (req, res, next) => {
 
   let promises = [
     new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function(err, results){ if (err) reject(err); else resolve(results)})),
-    new Promise((resolve, reject) => connection.query('SELECT * FROM humidityRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function(err, results){ if (err) reject(err); else resolve(results)})),
-    new Promise((resolve, reject) => connection.query('SELECT * FROM lightRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function(err, results){ if (err) reject(err); else resolve(results)})),
-    new Promise((resolve, reject) => connection.query('SELECT * FROM temperatureRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function(err, results){ if (err) reject(err); else resolve(results)}))
+    new Promise((resolve, reject) => connection.query('SELECT measure, timestamp FROM humidityRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function(err, results){ if (err) reject(err); else resolve(results)})),
+    new Promise((resolve, reject) => connection.query('SELECT measure, timestamp FROM lightRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function(err, results){ if (err) reject(err); else resolve(results)})),
+    new Promise((resolve, reject) => connection.query('SELECT measure, timestamp FROM temperatureRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function(err, results){ if (err) reject(err); else resolve(results)}))
   ];
 
   try{
@@ -118,7 +124,6 @@ app.get("/plant/:id", async (req, res, next) => {
       res.status(404).send(`404 - Plant ${id} not found`);
     }
     else{
-      console.log(results)
       res.json({
         plant:            results[0][0],
         last_humidity:    results[1][0],
@@ -127,21 +132,121 @@ app.get("/plant/:id", async (req, res, next) => {
       })
     }
   }
-  catch {
+  catch (error) {
+    console.error(error);
     res.status(500).send("500 - Internal server error");
   }
 });
 
-app.get("/plant/:id/light", (req, res, next) => {
-  //informació de la llum de la planta, mesures de les ultimes n hores
+app.get("/plant/:id/light/:hours", (req, res, next) => {
+  //informació de la llum de la planta, mesures de les ultimes N hores
+
+  let id = req.params.id;
+
+  connection.query('SELECT measure, timestamp FROM lightRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function(err, results){
+    if (err){
+      res.status(500).send("500 - Internal server error");
+    }
+    else{
+      if (!results.length){
+        let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function(err, res){ if (err) reject(err); else resolve(res)}));
+        try{
+          let resCheck = await checkExists;
+          if (!resCheck.length) {
+            res.status(404).send(`404 - Plant ${id} not found`);
+          }
+          else {
+            res.json({
+              results
+            });
+          }
+        }
+        catch(error){
+          console.error(error);
+          res.status(500).send("500 - Internal server error");
+        }
+      }
+      else{
+        res.json({
+          results
+        });
+      }
+    }
+  })
 });
 
-app.get("/plant/:id/temperature", (req, res, next) => {
-  //informació de la temperatura de la planta, mesures de les ultimes n hores
+app.get("/plant/:id/temperature/:hours", (req, res, next) => {
+  //informació de la temperatura de la planta, mesures de les ultimes N hores
+
+  let id = req.params.id;
+
+  connection.query('SELECT measure, timestamp FROM temperatureRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function(err, results){
+    if (err){
+      res.status(500).send("500 - Internal server error");
+    }
+    else{
+      if (!results.length){
+        let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function(err, res){ if (err) reject(err); else resolve(res)}));
+        try{
+          let resCheck = await checkExists;
+          if (!resCheck.length) {
+            res.status(404).send(`404 - Plant ${id} not found`);
+          }
+          else {
+            res.json({
+              results
+            });
+          }
+        }
+        catch(error){
+          console.log(error);
+          res.status(500).send("500 - Internal server error");
+        }
+      }
+      else{
+        res.json({
+          results
+        });
+      }
+    }
+  })
 });
 
-app.get("/plant/:id/humidity", (req, res, next) => {
-  //informació de la temperatura de la planta, mesures de les ultimes n hores
+app.get("/plant/:id/humidity/:hours", (req, res, next) => {
+  //informació de la humetat de la planta, mesures de les ultimes N hores
+
+  let id = req.params.id;
+
+  connection.query('SELECT measure, timestamp FROM humidityRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function(err, results){
+    if (err){
+      res.status(500).send("500 - Internal server error");
+    }
+    else{
+      if (!results.length){
+        let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function(err, res){ if (err) reject(err); else resolve(res)}));
+        try{
+          let resCheck = await checkExists;
+          if (!resCheck.length) {
+            res.status(404).send(`404 - Plant ${id} not found`);
+          }
+          else {
+            res.json({
+              results
+            });
+          }
+        }
+        catch(error){
+          console.log(error);
+          res.status(500).send("500 - Internal server error");
+        }
+      }
+      else{
+        res.json({
+          results
+        });
+      }
+    }
+  })
 });
 
 app.get("/species/:name", (req, res, next) => {
