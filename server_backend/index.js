@@ -495,8 +495,63 @@ app.post('/modifyPlant/:id', (req, res, next) => {
   }
 })
 
-app.post('/deletePlant/:id', (req, res, next) => {
+app.post('/deletePlant/:id', async (req, res, next) => {
   //sí
+  const id = req.params.id;
+  connection.query('SELECT id FROM plants WHERE id = ?;', id, async function (err, results) {
+    if (err) {
+      res.status(500).send("500 - Internal server error");
+    }
+    else {
+      if (results.length) {
+        connection.beginTransaction(async function (err) {
+          if (err) {
+            console.error(err);
+            res.status(500).send("500 - Internal server error");
+          }
+          else {
+            if (id.match(numRegex)) {
+              let promises = [
+                new Promise((resolve, reject) => connection.query('DELETE FROM humidityRecords WHERE plant_id = ?', id, function (err) { if (err) reject(err); else resolve() })),
+                new Promise((resolve, reject) => connection.query('DELETE FROM lightRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function (err) { if (err) reject(err); else resolve() })),
+                new Promise((resolve, reject) => connection.query('DELETE FROM temperatureRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function (err) { if (err) reject(err); else resolve() }))
+              ];
+              try {
+                await Promise.all(promises);
+                connection.query('DELETE FROM plants WHERE id = ?', id, function (err, results) {
+                  if (err) {
+                    console.error(err);
+                    res.status(500).send("500 - Internal server error");
+                  }
+                  else {
+                    connection.commit(function (error) {
+                      if (error) {
+                        console.error(err);
+                        res.status(500).send("500 - Internal server error");
+                      }
+                      else {
+                        res.status(201).send();
+                      }
+                    })
+                  }
+                })
+              }
+              catch (error) {
+                console.error(error);
+                res.status(500).send("500 - Internal server error");
+              }
+            }
+            else {
+              res.status(400).send("400 - Bad request")
+            }
+          }
+        })
+      }
+      else {
+        res.status(404).send(`404 - Plant ${id} not found`);
+      }
+    }
+  })
 })
 
 
