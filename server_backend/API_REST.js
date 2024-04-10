@@ -1,7 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2');
-const app = express()
-const httpPort = 8080
+const app = express();
+const httpPort = 8080;
 app.use(express.json());
 
 var tasks = []
@@ -9,54 +9,69 @@ const timeRegex = /^(?:[01]?[\d]|2[0-3]):[0-5]?\d:[0-5]?\d$/
 const numRegex = /^\d+$/
 
 //connecta amb base de dades
-var connection = mysql.createConnection({
-  host: "localhost",
-  port: 3306,
-  user: "PlantUser",
-  password: "verygay",
-  database: "PlantManager"
-})
+var firstConnect = true;
+const connectToDatabase = async () => {
+  connection = mysql.createConnection({
+    host: "localhost",
+    port: 3306,
+    user: "PlantUser",
+    password: "verygay",
+    database: "PlantManager"
+  });
+  connection.connect((err) => {
+    if (err) {
+      console.error(`${new Date()} - Failed to connect to MySQL database.`);
+      console.error(err.message);
+      process.exit(1);
+    };
+    if (firstConnect) {
+      console.log(`${new Date()} - Connected to the MySQL server at ${connection.config.user}@${connection.config.host}:${connection.config.port} using database ${connection.config.database}`);
+      firstConnect = false;
+    }
+    else {
+      console.log(`${new Date()} - Reconnected to database.`);
+    }
+    connection.stream.on('close', () => {
+      console.log(`${new Date()} - Lost connection to database, reconnecting...`);
+      connectToDatabase();
+    });
+  });
+}
 
-
-connection.connect((err) => {
-  if (err) {
-    console.error(err.message);
-    process.exit(1);
-  };
-  console.log(`Connected to the MySQL server at ${connection.config.user}@${connection.config.host}:${connection.config.port} using database ${connection.config.database}`);
-});
+var connection = null;
+connectToDatabase();
 
 
 //inicialitza servidor
 const server = app.listen(httpPort, () => {
-  console.log(`HTTP Server listening at http://localhost:${httpPort}`)
-})
+  console.log(`${new Date()} - HTTP Server listening at http://localhost:${httpPort}`);
+});
 
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     console.error(`Port ${httpPort} is already in use`);
-    process.exit(2);
   }
+  console.error(error);
+  process.exit(2);
 });
 
+function requestError(error, response) {
+  console.error(error);
+  response.status(500).send("500 - Internal server error");
+}
 
 app.get('/', (req, res) => {
   res.status(200).send("Test!")
-})
+});
 
 app.get("/plants", (req, res, next) => {
   //llistat de totes les plantes
 
   connection.query('SELECT * FROM plants', function (err, results) {
-    if (err) {
-      console.error(err);
-      res.status(500).send("500 - Internal server error");
-    }
-    else {
-      res.status(200).json({
-        plants: results
-      });
-    }
+    if (err) return requestError(err, res);
+    res.status(200).json({
+      plants: results
+    });
   })
 });
 
@@ -84,16 +99,15 @@ app.get("/plant/:id", async (req, res, next) => {
           last_humidity: results[1][0],
           last_light: results[2][0],
           last_temperature: results[3][0],
-        })
+        });
       }
     }
     catch (error) {
-      console.error(error);
-      res.status(500).send("500 - Internal server error");
+      requestError(err, res);
     }
   }
   else {
-    res.status(400).send("400 - Bad request")
+    res.status(400).send("400 - Bad request");
   }
 });
 
@@ -103,36 +117,30 @@ app.get("/plant/:id/light/:hours", (req, res, next) => {
   let id = req.params.id;
   if (id.match(numRegex) && req.params.hours.match(numRegex)) {
     connection.query('SELECT measure, timestamp FROM lightRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function (err, results) {
-      if (err) {
-        console.error(err);
-        res.status(500).send("500 - Internal server error");
+      if (err) return requestError(err, res);
+      if (!results.length) {
+        let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function (err, res) { if (err) reject(err); else resolve(res) }));
+        try {
+          let resCheck = await checkExists;
+          if (!resCheck.length) {
+            res.status(404).send(`404 - Plant ${id} not found`);
+          }
+          else {
+            res.status(200).json({
+              results
+            });
+          }
+        }
+        catch (error) {
+          requestError(err, res);
+        }
       }
       else {
-        if (!results.length) {
-          let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function (err, res) { if (err) reject(err); else resolve(res) }));
-          try {
-            let resCheck = await checkExists;
-            if (!resCheck.length) {
-              res.status(404).send(`404 - Plant ${id} not found`);
-            }
-            else {
-              res.status(200).json({
-                results
-              });
-            }
-          }
-          catch (error) {
-            console.error(error);
-            res.status(500).send("500 - Internal server error");
-          }
-        }
-        else {
-          res.status(200).json({
-            results
-          });
-        }
+        res.status(200).json({
+          results
+        });
       }
-    })
+    });
   }
   else {
     res.status(400).send("400 - Bad request")
@@ -145,39 +153,33 @@ app.get("/plant/:id/temperature/:hours", (req, res, next) => {
   let id = req.params.id;
   if (id.match(numRegex) && req.params.hours.match(numRegex)) {
     connection.query('SELECT measure, timestamp FROM temperatureRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function (err, results) {
-      if (err) {
-        console.error(err);
-        res.status(500).send("500 - Internal server error");
+      if (err) return requestError(err, res);
+      if (!results.length) {
+        let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function (err, res) { if (err) reject(err); else resolve(res) }));
+        try {
+          let resCheck = await checkExists;
+          if (!resCheck.length) {
+            res.status(404).send(`404 - Plant ${id} not found`);
+          }
+          else {
+            res.status(200).json({
+              results
+            });
+          }
+        }
+        catch (error) {
+          requestError(err, res);
+        }
       }
       else {
-        if (!results.length) {
-          let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function (err, res) { if (err) reject(err); else resolve(res) }));
-          try {
-            let resCheck = await checkExists;
-            if (!resCheck.length) {
-              res.status(404).send(`404 - Plant ${id} not found`);
-            }
-            else {
-              res.status(200).json({
-                results
-              });
-            }
-          }
-          catch (error) {
-            console.error(error);
-            res.status(500).send("500 - Internal server error");
-          }
-        }
-        else {
-          res.status(200).json({
-            results
-          });
-        }
+        res.status(200).json({
+          results
+        });
       }
     })
   }
   else {
-    res.status(400).send("400 - Bad request")
+    res.status(400).send("400 - Bad request");
   }
 });
 
@@ -187,39 +189,33 @@ app.get("/plant/:id/humidity/:hours", (req, res, next) => {
   let id = req.params.id;
   if (id.match(numRegex) && req.params.hours.match(numRegex)) {
     connection.query('SELECT measure, timestamp FROM humidityRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function (err, results) {
-      if (err) {
-        console.error(err);
-        res.status(500).send("500 - Internal server error");
+      if (err) return requestError(err, res);
+      if (!results.length) {
+        let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function (err, res) { if (err) reject(err); else resolve(res) }));
+        try {
+          let resCheck = await checkExists;
+          if (!resCheck.length) {
+            res.status(404).send(`404 - Plant ${id} not found`);
+          }
+          else {
+            res.status(200).json({
+              results
+            });
+          }
+        }
+        catch (error) {
+          return requestError(err, res);
+        }
       }
       else {
-        if (!results.length) {
-          let checkExists = new Promise((resolve, reject) => connection.query('SELECT * FROM plants WHERE id = ?', id, function (err, res) { if (err) reject(err); else resolve(res) }));
-          try {
-            let resCheck = await checkExists;
-            if (!resCheck.length) {
-              res.status(404).send(`404 - Plant ${id} not found`);
-            }
-            else {
-              res.status(200).json({
-                results
-              });
-            }
-          }
-          catch (error) {
-            console.error(error);
-            res.status(500).send("500 - Internal server error");
-          }
-        }
-        else {
-          res.status(200).json({
-            results
-          });
-        }
+        res.status(200).json({
+          results
+        });
       }
-    })
+    });
   }
   else {
-    res.status(400).send("400 - Bad request")
+    res.status(400).send("400 - Bad request");
   }
 });
 
@@ -227,16 +223,11 @@ app.get("/species/:name", (req, res, next) => {
   //llista de plantes d'una especie
 
   connection.query('SELECT description, lights_on, lights_off, temp_min, temp_max, humidity_min, humidity_max FROM plants where LOWER(species) = LOWER(?)', req.params.name, function (err, results) {
-    if (err) {
-      console.error(err);
-      res.status(500).send("500 - Internal server error");
-    }
-    else {
-      res.status(200).json({
-        plants: results
-      });
-    }
-  })
+    if (err) return requestError(err, res);
+    res.status(200).json({
+      plants: results
+    });
+  });
 });
 
 app.post('/createPlant', (req, res, next) => {
@@ -280,168 +271,153 @@ app.post('/createPlant', (req, res, next) => {
     connection.query('INSERT INTO plants(description, species, lights_on, lights_off, temp_min, temp_max, humidity_min, humidity_max) VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
       [req.body.description, req.body.species, req.body.lights_on, req.body.lights_off, req.body.temp_min, req.body.temp_max, req.body.hum_min, req.body.hum_max],
       function (err, results) {
-        if (err) {
-          console.error(err);
-          res.status(500).send("500 - Internal server error");
-        }
-        else {
-          res.status(201).send();
-        }
-      })
+        if (err) return requestError(err, res);
+        res.status(201).send();
+      });
   }
   else {
     res.status(400).send("400 - Bad request");
   }
-})
+});
 
 app.post('/modifyPlant/:id', (req, res, next) => {
   //demana json amb els 8 camps, poden ser nuls tots menys un
 
-  let id = req.params.id
+  let id = req.params.id;
 
   if (id.match(numRegex)) {
     connection.query('SELECT * FROM plants where id = ?', id, function (err, results) {
-      if (err) {
-        console.error(err);
-        res.status(500).send("500 - Internal server error");
+      if (err) return requestError(err, res);
+      if (!results.length) {
+        res.status(404).send(`404 - Plant ${id} not found`);
       }
       else {
-        if (!results.length) {
-          res.status(404).send(`404 - Plant ${id} not found`);
-        }
-        else {
-          let changed = false;
-          let parameters = [];
+        let changed = false;
+        let parameters = [];
 
-          if (req.body.description != null) {
-            if (typeof req.body.description === "string" && req.body.description.length <= 255) {
-              parameters.push(req.body.description);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["description"]);
-          }
-
-          if (req.body.species != null) {
-            if (typeof req.body.species === "string" && req.body.species.length <= 255) {
-              parameters.push(req.body.species);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["species"]);
-          }
-
-          if (req.body.lights_on != null) {
-            if (typeof req.body.lights_on === "string" && req.body.lights_on.match(timeRegex)) {
-              parameters.push(req.body.lights_on);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["lights_on"]);
-          }
-
-          if (req.body.lights_off != null) {
-            if (typeof req.body.lights_off === "string" && req.body.lights_off.match(timeRegex)) {
-              parameters.push(req.body.lights_off);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["lights_off"]);
-          }
-
-          if (req.body.temp_min != null) {
-            if (typeof req.body.temp_min === "number") {
-              parameters.push(req.body.temp_min);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["temp_min"]);
-          }
-
-          if (req.body.temp_max != null) {
-            if (typeof req.body.temp_max === "number") {
-              parameters.push(req.body.temp_max);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["temp_max"]);
-          }
-
-          if (req.body.hum_min != null) {
-            if (typeof req.body.hum_min === "number" && req.body.hum_min >= 0) {
-              parameters.push(req.body.hum_min);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["humidity_min"]);
-          }
-
-          if (req.body.hum_max != null) {
-            if (typeof req.body.hum_max === "number" && req.body.hum_max >= 0) {
-              parameters.push(req.body.hum_max);
-              changed = true;
-            }
-            else {
-              res.status(400).send("400 - Bad request");
-              return;
-            }
-          }
-          else {
-            parameters.push(results[0]["humidity_max"]);
-          }
-          if (changed) {
-            parameters.push(id);
-            connection.query(
-              'UPDATE plants SET description = ?, species = ?, lights_on = ?, lights_off = ?, temp_min = ?, temp_max = ?, humidity_min = ?, humidity_max = ? WHERE id = ?',
-              parameters, function (err, results) {
-                if (err) {
-                  console.error(err);
-                  res.status(500).send("500 - Internal server error");
-                }
-                else {
-                  res.status(201).send();
-                }
-              })
+        if (req.body.description != null) {
+          if (typeof req.body.description === "string" && req.body.description.length <= 255) {
+            parameters.push(req.body.description);
+            changed = true;
           }
           else {
             res.status(400).send("400 - Bad request");
             return;
           }
+        }
+        else {
+          parameters.push(results[0]["description"]);
+        }
+
+        if (req.body.species != null) {
+          if (typeof req.body.species === "string" && req.body.species.length <= 255) {
+            parameters.push(req.body.species);
+            changed = true;
+          }
+          else {
+            res.status(400).send("400 - Bad request");
+            return;
+          }
+        }
+        else {
+          parameters.push(results[0]["species"]);
+        }
+
+        if (req.body.lights_on != null) {
+          if (typeof req.body.lights_on === "string" && req.body.lights_on.match(timeRegex)) {
+            parameters.push(req.body.lights_on);
+            changed = true;
+          }
+          else {
+            res.status(400).send("400 - Bad request");
+            return;
+          }
+        }
+        else {
+          parameters.push(results[0]["lights_on"]);
+        }
+
+        if (req.body.lights_off != null) {
+          if (typeof req.body.lights_off === "string" && req.body.lights_off.match(timeRegex)) {
+            parameters.push(req.body.lights_off);
+            changed = true;
+          }
+          else {
+            res.status(400).send("400 - Bad request");
+            return;
+          }
+        }
+        else {
+          parameters.push(results[0]["lights_off"]);
+        }
+
+        if (req.body.temp_min != null) {
+          if (typeof req.body.temp_min === "number") {
+            parameters.push(req.body.temp_min);
+            changed = true;
+          }
+          else {
+            res.status(400).send("400 - Bad request");
+            return;
+          }
+        }
+        else {
+          parameters.push(results[0]["temp_min"]);
+        }
+
+        if (req.body.temp_max != null) {
+          if (typeof req.body.temp_max === "number") {
+            parameters.push(req.body.temp_max);
+            changed = true;
+          }
+          else {
+            res.status(400).send("400 - Bad request");
+            return;
+          }
+        }
+        else {
+          parameters.push(results[0]["temp_max"]);
+        }
+
+        if (req.body.hum_min != null) {
+          if (typeof req.body.hum_min === "number" && req.body.hum_min >= 0) {
+            parameters.push(req.body.hum_min);
+            changed = true;
+          }
+          else {
+            res.status(400).send("400 - Bad request");
+            return;
+          }
+        }
+        else {
+          parameters.push(results[0]["humidity_min"]);
+        }
+
+        if (req.body.hum_max != null) {
+          if (typeof req.body.hum_max === "number" && req.body.hum_max >= 0) {
+            parameters.push(req.body.hum_max);
+            changed = true;
+          }
+          else {
+            res.status(400).send("400 - Bad request");
+            return;
+          }
+        }
+        else {
+          parameters.push(results[0]["humidity_max"]);
+        }
+        if (changed) {
+          parameters.push(id);
+          connection.query(
+            'UPDATE plants SET description = ?, species = ?, lights_on = ?, lights_off = ?, temp_min = ?, temp_max = ?, humidity_min = ?, humidity_max = ? WHERE id = ?',
+            parameters, function (err, results) {
+              if (err) return requestError(err, res);
+              res.status(201).send();
+            })
+        }
+        else {
+          res.status(400).send("400 - Bad request");
+          return;
         }
       }
     })
@@ -449,67 +425,46 @@ app.post('/modifyPlant/:id', (req, res, next) => {
   else {
     res.status(400).send("400 - Bad request");
   }
-})
+});
 
 app.post('/deletePlant/:id', async (req, res, next) => {
   //sí
   const id = req.params.id;
   connection.query('SELECT id FROM plants WHERE id = ?;', id, async function (err, results) {
-    if (err) {
-      console.error(err);
-      res.status(500).send("500 - Internal server error");
+    if (err) return requestError(err, res);
+    if (results.length) {
+      connection.beginTransaction(async function (err) {
+        if (err) return requestError(err, res);
+        if (id.match(numRegex)) {
+          let promises = [
+            new Promise((resolve, reject) => connection.query('DELETE FROM humidityRecords WHERE plant_id = ?', id, function (err) { if (err) reject(err); else resolve() })),
+            new Promise((resolve, reject) => connection.query('DELETE FROM lightRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function (err) { if (err) reject(err); else resolve() })),
+            new Promise((resolve, reject) => connection.query('DELETE FROM temperatureRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function (err) { if (err) reject(err); else resolve() }))
+          ];
+          try {
+            await Promise.all(promises);
+            connection.query('DELETE FROM plants WHERE id = ?', id, function (err, results) {
+              if (err) return requestError(err, res);
+              connection.commit(function (error) {
+                if (error) return requestError(err, res);
+                res.status(201).send();
+              });
+            });
+          }
+          catch (error) {
+            requestError(err, res);
+          }
+        }
+        else {
+          res.status(400).send("400 - Bad request");
+        }
+      })
     }
     else {
-      if (results.length) {
-        connection.beginTransaction(async function (err) {
-          if (err) {
-            console.error(err);
-            res.status(500).send("500 - Internal server error");
-          }
-          else {
-            if (id.match(numRegex)) {
-              let promises = [
-                new Promise((resolve, reject) => connection.query('DELETE FROM humidityRecords WHERE plant_id = ?', id, function (err) { if (err) reject(err); else resolve() })),
-                new Promise((resolve, reject) => connection.query('DELETE FROM lightRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function (err) { if (err) reject(err); else resolve() })),
-                new Promise((resolve, reject) => connection.query('DELETE FROM temperatureRecords WHERE plant_id = ? ORDER BY timestamp DESC limit 1', id, function (err) { if (err) reject(err); else resolve() }))
-              ];
-              try {
-                await Promise.all(promises);
-                connection.query('DELETE FROM plants WHERE id = ?', id, function (err, results) {
-                  if (err) {
-                    console.error(err);
-                    res.status(500).send("500 - Internal server error");
-                  }
-                  else {
-                    connection.commit(function (error) {
-                      if (error) {
-                        console.error(err);
-                        res.status(500).send("500 - Internal server error");
-                      }
-                      else {
-                        res.status(201).send();
-                      }
-                    })
-                  }
-                })
-              }
-              catch (error) {
-                console.error(error);
-                res.status(500).send("500 - Internal server error");
-              }
-            }
-            else {
-              res.status(400).send("400 - Bad request")
-            }
-          }
-        })
-      }
-      else {
-        res.status(404).send(`404 - Plant ${id} not found`);
-      }
+      res.status(404).send(`404 - Plant ${id} not found`);
     }
-  })
-})
+  });
+});
 
 
 /*
