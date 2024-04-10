@@ -151,6 +151,7 @@ app.get("/plant/:id/light/:hours", (req, res, next) => {
   if (id.match(numRegex) && req.params.hours.match(numRegex)) {
     connection.query('SELECT measure, timestamp FROM lightRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function (err, results) {
       if (err) {
+        console.error(err);
         res.status(500).send("500 - Internal server error");
       }
       else {
@@ -192,6 +193,7 @@ app.get("/plant/:id/temperature/:hours", (req, res, next) => {
   if (id.match(numRegex) && req.params.hours.match(numRegex)) {
     connection.query('SELECT measure, timestamp FROM temperatureRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function (err, results) {
       if (err) {
+        console.error(err);
         res.status(500).send("500 - Internal server error");
       }
       else {
@@ -233,6 +235,7 @@ app.get("/plant/:id/humidity/:hours", (req, res, next) => {
   if (id.match(numRegex) && req.params.hours.match(numRegex)) {
     connection.query('SELECT measure, timestamp FROM humidityRecords WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? HOUR ORDER BY timestamp;', [id, req.params.hours], async function (err, results) {
       if (err) {
+        console.error(err);
         res.status(500).send("500 - Internal server error");
       }
       else {
@@ -500,6 +503,7 @@ app.post('/deletePlant/:id', async (req, res, next) => {
   const id = req.params.id;
   connection.query('SELECT id FROM plants WHERE id = ?;', id, async function (err, results) {
     if (err) {
+      console.error(err);
       res.status(500).send("500 - Internal server error");
     }
     else {
