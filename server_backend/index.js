@@ -315,7 +315,7 @@ app.post('/createPlant', (req, res, next) => {
   if (typeof req.body.description === "string" && req.body.description.length <= 255 &&
     typeof req.body.species === "string" && req.body.species.length <= 255 &&
     typeof req.body.lights_on === "string" && req.body.lights_on.match(timeRegex) &&
-    typeof req.body.lights_off === "string" && req.body.lights_off.match(timeRegex) && lights_off != lights_on &&
+    typeof req.body.lights_off === "string" && req.body.lights_off.match(timeRegex) && req.body.lights_off != req.body.lights_on &&
     typeof req.body.temp_min === "number" &&
     typeof req.body.temp_max === "number" && req.body.temp_min <= req.body.temp_max &&
     typeof req.body.hum_min === "number" && req.body.hum_min > 0 &&
