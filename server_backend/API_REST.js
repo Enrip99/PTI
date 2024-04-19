@@ -4,7 +4,7 @@ const app = express();
 const httpPort = 8080;
 app.use(express.json());
 
-var tasks = []
+//var tasks = []
 const timeRegex = /^(?:[01]?[\d]|2[0-3]):[0-5]?\d:[0-5]?\d$/
 const numRegex = /^\d+$/
 
