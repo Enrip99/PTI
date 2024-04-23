@@ -1,11 +1,10 @@
 const mqtt = require("mqtt");
 const mysql = require('mysql2');
 
+const floatRegex = /^-?(?:(?:[0-9]*\.[0-9]+)|(?:[0-9]+\.?))$/
+
 //connecta amb servidor mqtt
-//const client = mqtt.connect("mqtt://localhost:8082");
-const mqttUrl = "nattech.fib.upc.edu";
-const mqttPort = "40412";
-const client = mqtt.connect(`mqtt://${mqttUrl}:${mqttPort}`);
+const client = mqtt.connect(`mqtt://${process.env.MQTT_HOST}:${process.env.MQTT_HOST}`);
 client.on("connect", () => {
   client.subscribe("temperature", (err) => {
     if (err) {
@@ -31,11 +30,11 @@ client.on("connect", () => {
 var firstConnect = true;
 const connectToDatabase = async () => {
   connection = mysql.createConnection({
-    host: "localhost",
-    port: 3306,
-    user: "PlantUser",
-    password: "verygay",
-    database: "PlantManager"
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
   });
   connection.connect((err) => {
     if (err) {
@@ -44,7 +43,7 @@ const connectToDatabase = async () => {
       process.exit(1);
     };
     if (firstConnect) {
-      console.log(`${new Date()} - Connected to the MySQL server at ${connection.config.user}@${connection.config.host}:${connection.config.port} using database ${connection.config.database}`);
+      console.log(`${new Date()} - Connected to the MySQL server at ${process.env.DB_USERNAME}@${process.env.DB_HOST}:${process.env.DB_PORT} using database ${process.env.DB_NAME}`);
       firstConnect = false;
     }
     else {
@@ -61,10 +60,26 @@ client.on("message", (topic, message) => {
   // message is Buffer
   switch(topic.toLowerCase()){
     case "temperature":
-      dotemperature(message.toString());
+      doTemperature(message.toString());
     case "humidity":
-      dohumidity(message.toString());
+      doHumidity(message.toString());
     case "light":
-      dolight(message.toString());
+      doLight(message.toString());
   }
 });
+
+function doTemperature(msg){
+  if(msg.match(floatRegex)){
+    /*
+    Steps:
+    1- check if input is acceptable (already done)
+        - cancel if invalid
+    2- check if plant exists (we skip it in this phase bc we only support one plant)
+        - This allows us to also gather plant facts
+        - cancel if not an existing plant
+    3- add input to database
+    4- if value out of range, notification error
+    */
+   
+  }
+}

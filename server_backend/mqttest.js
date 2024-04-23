@@ -4,9 +4,9 @@ const schedule = require('node-schedule');
 const client = mqtt.connect("mqtt://nattech.fib.upc.edu:40412");
 
 client.on("connect", () => {
-    const job = schedule.scheduleJob('*/30 * * * * *', function(fireDate){
-      client.publish("notification", "Prova de notificació a les" + fireDate );
-      });
+    //const job = schedule.scheduleJob('*/30 * * * * *', function(fireDate){
+    //  client.publish("notification", "Prova de notificació a les" + fireDate );
+    //  });
     //client.end();
     client.subscribe("notification", (err) => {
       if (err) {
