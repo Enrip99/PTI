@@ -80,6 +80,6 @@ function doTemperature(msg){
     3- add input to database
     4- if value out of range, notification error
     */
-   
+    
   }
 }
