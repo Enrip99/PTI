@@ -72,10 +72,13 @@ client.on("message", (topic, message) => {
   switch (topic.toLowerCase()) {
     case "temperature":
       doTemperature(id, msg);
+      break;
     case "humidity":
       doHumidity(id, msg);
+      break;
     case "light":
       doLight(id, msg);
+      break;
   }
 });
 

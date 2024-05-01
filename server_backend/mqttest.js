@@ -7,7 +7,7 @@ client.on("connect", () => {
     //const job = schedule.scheduleJob('*/30 * * * * *', function(fireDate){
     //  client.publish("notification", "Prova de notificació a les" + fireDate );
     //});
-    client.publish("light", "1 false" );
+    client.publish("temperature", "1 81" );
     console.log("Missatge enviat")
     //client.end();
     client.subscribe("notification", (err) => {
