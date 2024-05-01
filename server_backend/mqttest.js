@@ -7,8 +7,8 @@ client.on("connect", () => {
     //const job = schedule.scheduleJob('*/30 * * * * *', function(fireDate){
     //  client.publish("notification", "Prova de notificació a les" + fireDate );
     //});
-    client.publish("light", "true" );
-    console.log("SEX")
+    client.publish("light", "1 false" );
+    console.log("Missatge enviat")
     //client.end();
     client.subscribe("notification", (err) => {
       if (err) {

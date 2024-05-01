@@ -62,14 +62,20 @@ var connection = null;
 connectToDatabase();
 
 client.on("message", (topic, message) => {
-  // message is Buffer
+  // message is Buffer, we have to use toString
+  // we then split into plant id and rest of message
+  let stringMsg = message.toString();
+  let index = stringMsg.indexOf(' ');
+  let id = stringMsg.slice(0, index);
+  let msg = stringMsg.slice(index + 1);
+
   switch (topic.toLowerCase()) {
     case "temperature":
-      doTemperature(message.toString());
+      doTemperature(id, msg);
     case "humidity":
-      doHumidity(message.toString());
+      doHumidity(id, msg);
     case "light":
-      doLight(message.toString());
+      doLight(id, msg);
   }
 });
 
@@ -77,25 +83,26 @@ function mqttError(error) {
   console.error(error);
 }
 
-function doTemperature(msg) {
-  /*
-  Steps:
-  1- check if input is acceptable (already done)
-  - cancel if invalid
-  2- check if plant exists (we skip it in this phase bc we only support one plant)
-  - This allows us to also gather plant facts
-  - cancel if not an existing plant
-  3- add input to database
-  4- if value out of range, notification error
-  */
+/*
+Steps:
+1- check if input is acceptable (already done)
+ - cancel if invalid
+2- check if plant exists (we skip it in this phase bc we only support one plant)
+ - This allows us to also gather plant facts
+ - cancel if not an existing plant
+3- add input to database
+4- if value out of range, notification error
+*/
+
+function doTemperature(id, msg) {
 
   let measure = msg;
-  let id = 1;
   if (!measure.match(floatRegex)) return;
 
   connection.query('SELECT temp_min, temp_max FROM plants WHERE id = ?', id, function (err, results) {
     if (err) return mqttError(err);
     if (!results.length) return;
+
     if (parseFloat(results[0].temp_min) > parseFloat(measure)) {
       client.publish("notification", `Temperatura massa baixa per a planta ${id}: ${measure} graus.`);
     }
@@ -108,14 +115,14 @@ function doTemperature(msg) {
   })
 }
 
-function doHumidity(msg) {
+function doHumidity(id, msg) {
 
   let measure = msg;
-  let id = 1;
   if (!measure.match(floatRegex)) return;
   connection.query('SELECT humidity_min, humidity_max FROM plants WHERE id = ?', id, function (err, results) {
     if (err) return mqttError(err);
     if (!results.length) return;
+
     if (parseFloat(results[0].humidity_min) > parseFloat(measure)) {
       client.publish("notification", `Humitat massa baixa per a planta ${id}: ${measure}%.`);
     }
@@ -128,24 +135,23 @@ function doHumidity(msg) {
   })
 }
 
-function doLight(msg) {
-
-  let id = 1;
+function doLight(id, msg) {
   let measure;
   if (msg === "true") measure = true;
-  else if (msg === "false") measure == false;
+  else if (msg === "false") measure = false;
   else return;
   let horaActual = new Date().toTimeString().split(' ')[0];
-  
+
   connection.query('SELECT lights_on, lights_off FROM plants WHERE id = ?', id, function (err, results) {
     if (err) return mqttError(err);
     if (!results.length) return;
+    
     connection.query('INSERT INTO lightRecords(plant_id, measure, timestamp) VALUES (?, ?, NOW())', [id, measure], function (err) {
       if (err) return mqttError(err);
       if (measure && ((results[0].lights_on < results[0].lights_off && (horaActual < results[0].lights_on || results[0].lights_off < horaActual)) || (results[0].lights_off < results[0].lights_on && results[0].lights_off < horaActual && horaActual < results[0].lights_on))) {
         client.publish("notification", `Les llums de la planta ${id} són enceses fora d'hora.`);
       }
-      else if (!measure && ((results[0].lights_on < results[0].lights_off && results[0].lights_on < horaActual && horaActual < results[0].lights_off) || (results[0].lights_off < results[0].lights_on && (horaActual < results[0].lights_off || results[0].lights_on < horaActual)))){
+      else if (!measure && ((results[0].lights_on < results[0].lights_off && results[0].lights_on < horaActual && horaActual < results[0].lights_off) || (results[0].lights_off < results[0].lights_on && (horaActual < results[0].lights_off || results[0].lights_on < horaActual)))) {
         client.publish("notification", `Les llums de la planta ${id} són apagades fora d'hora.`);
       }
     })
