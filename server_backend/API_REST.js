@@ -1,22 +1,24 @@
+require('dotenv').config()
 const express = require('express');
 const mysql = require('mysql2');
 const app = express();
-const httpPort = 8080;
 app.use(express.json());
 
-var tasks = []
-const timeRegex = /^(?:[01]?[\d]|2[0-3]):[0-5]?\d:[0-5]?\d$/
-const numRegex = /^\d+$/
+//var tasks = []
+const timeRegex = /^(?:[01]?[0-9]|2[0-3])(?::[0-5]?[0-9]){2}$/
+const numRegex = /^[0-9]+$/
+
+console.log(process.env.DB_NAME)
 
 //connecta amb base de dades
 var firstConnect = true;
 const connectToDatabase = async () => {
   connection = mysql.createConnection({
-    host: "localhost",
-    port: 3306,
-    user: "PlantUser",
-    password: "verygay",
-    database: "PlantManager"
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
   });
   connection.connect((err) => {
     if (err) {
@@ -25,7 +27,7 @@ const connectToDatabase = async () => {
       process.exit(1);
     };
     if (firstConnect) {
-      console.log(`${new Date()} - Connected to the MySQL server at ${connection.config.user}@${connection.config.host}:${connection.config.port} using database ${connection.config.database}`);
+      console.log(`${new Date()} - Connected to the MySQL server at ${process.env.DB_USERNAME}@${process.env.DB_HOST}:${process.env.DB_PORT} using database ${process.env.DB_NAME}`);
       firstConnect = false;
     }
     else {
@@ -43,13 +45,13 @@ connectToDatabase();
 
 
 //inicialitza servidor
-const server = app.listen(httpPort, () => {
-  console.log(`${new Date()} - HTTP Server listening at http://localhost:${httpPort}`);
+const server = app.listen(process.env.HTTP_PORT, () => {
+  console.log(`${new Date()} - HTTP Server listening at http://localhost:${process.env.HTTP_PORT}`);
 });
 
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${httpPort} is already in use`);
+    console.error(`Port ${process.env.HTTP_PORT} is already in use`);
   }
   console.error(error);
   process.exit(2);
