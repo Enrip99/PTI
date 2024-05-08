@@ -79,6 +79,9 @@ client.on("message", (topic, message) => {
     case "light":
       doLight(id, msg);
       break;
+    case "led":
+      doLight(id, msg);
+      break;
   }
 });
 
@@ -140,8 +143,8 @@ function doHumidity(id, msg) {
 
 function doLight(id, msg) {
   let measure;
-  if (msg === "true") measure = true;
-  else if (msg === "false") measure = false;
+  if (msg === "true" || msg === "1" ) measure = true;
+  else if (msg === "false" || msg === "0") measure = false;
   else return;
   let horaActual = new Date().toTimeString().split(' ')[0];
 
