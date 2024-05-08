@@ -26,6 +26,12 @@ client.on("connect", () => {
       process.exit(3);
     }
   });
+  client.subscribe("led", (err) => {
+    if (err) {
+      console.error(err);
+      process.exit(3);
+    }
+  });
 });
 
 //connecta amb base de dades
