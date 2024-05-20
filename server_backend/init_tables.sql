@@ -15,7 +15,8 @@ CREATE TABLE plants (
   CHECK (lights_on >= TIME '0:0:0'),
   CHECK (lights_on < TIME '24:0:0'),
   CHECK (lights_off >= TIME '0:0:0'),
-  CHECK (lights_off < TIME '24:0:0')
+  CHECK (lights_off < TIME '24:0:0'),
+  CHECK (lights_off <> lights_on)
 );
 
 CREATE TABLE lightRecords (
