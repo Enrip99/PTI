@@ -1,14 +1,17 @@
 require('dotenv').config()
-const express = require('express');
 const mysql = require('mysql2');
+const express = require('express');
 const app = express();
 app.use(express.json());
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
+const privateKey  = fs.readFileSync(`${process.env.HTTPS_KEY}`, 'utf8');
+const certificate = fs.readFileSync(`${process.env.HTTPS_CRT}`, 'utf8');
+var credentials = {key: privateKey, cert: certificate};
 
-//var tasks = []
 const timeRegex = /^(?:[01]?[0-9]|2[0-3])(?::[0-5]?[0-9]){2}$/
 const numRegex = /^[0-9]+$/
-
-console.log(process.env.DB_NAME)
 
 //connecta amb base de dades
 var firstConnect = true;
@@ -43,15 +46,15 @@ const connectToDatabase = async () => {
 var connection = null;
 connectToDatabase();
 
+var httpsServer = https.createServer(credentials, app);
 
-//inicialitza servidor
-const server = app.listen(process.env.HTTP_PORT, () => {
-  console.log(`${new Date()} - HTTP Server listening at http://localhost:${process.env.HTTP_PORT}`);
+httpsServer.listen(process.env.HTTPS_PORT, () => {
+  console.log(`${new Date()} - HTTP Server listening at http://localhost:${process.env.HTTPS_PORT}`);
 });
 
-server.on('error', (error) => {
+httpsServer.on('error', (error) => {  
   if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${process.env.HTTP_PORT} is already in use`);
+    console.error(`Port ${process.env.HTTPS_PORT} is already in use`);
   }
   console.error(error);
   process.exit(2);
@@ -467,13 +470,3 @@ app.post('/deletePlant/:id', async (req, res, next) => {
     }
   });
 });
-
-
-/*
-//SCHEDULE EXEMPLE:
-console.log(req.body);
-tasks.push(schedule.scheduleJob('0 * * * * *', function(){  // this for one minute
-  console.log('Output: ' + req.body.text);
-}))
-res.end();
-*/
