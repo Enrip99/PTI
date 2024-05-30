@@ -11,7 +11,9 @@ CREATE TABLE plants (
   CHECK (temp_min < temp_max), 
   CHECK (humidity_min < humidity_max),
   CHECK (humidity_min >= 0),
-  CHECK (humidity_max >= 0),
+  CHECK (humidity_min < 100),
+  CHECK (humidity_max > 0),
+  CHECK (humidity_max <= 100),
   CHECK (lights_on >= TIME '0:0:0'),
   CHECK (lights_on < TIME '24:0:0'),
   CHECK (lights_off >= TIME '0:0:0'),
@@ -41,5 +43,6 @@ CREATE TABLE humidityRecords (
   measure FLOAT NOT NULL,
   timestamp DATETIME NOT NULL,
   FOREIGN KEY (plant_id) REFERENCES plants (id),
-  CHECK (measure >= 0)
+  CHECK (measure >= 0),
+  CHECK (measure <= 100)
 );

@@ -6,7 +6,7 @@ const floatRegex = /^-?(?:(?:[0-9]*\.[0-9]+)|(?:[0-9]+\.?))$/
 
 
 //connecta amb servidor mqtt
-const client = mqtt.connect(`mqtt://${process.env.MQTT_HOST}:${process.env.MQTT_PORT}`);
+const client = mqtt.connect(`mqtt://${process.env.MQTT_HOST}:${process.env.MQTT_PORT}`, {username: process.env.MQTT_USER, password: process.env.MQTT_PASS});
 client.on("connect", () => {
   client.subscribe("temperature", (err) => {
     if (err) {
@@ -43,6 +43,7 @@ const connectToDatabase = async () => {
     user: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME
+    ssl: {rejectUnauthorized: false}
   });
   connection.connect((err) => {
     if (err) {
